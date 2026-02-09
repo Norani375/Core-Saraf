@@ -1,0 +1,7 @@
+{
+  "name": "Core-Saraf",
+  "description": "A comprehensive, DAB-compliant exchange management system with KYC/AML modules, solar hijri support, and regulatory reporting.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
