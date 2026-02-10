@@ -25,6 +25,15 @@ export const db = {
     localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(updated));
     db.logAudit('ADMIN', 'CUSTOMER_CREATE', `ثبت مشتری جدید: ${customer.full_name}`, 'INFO');
   },
+  updateCustomer: (customer: Customer) => {
+    const customers = db.getCustomers();
+    const index = customers.findIndex(c => c.id === customer.id);
+    if (index !== -1) {
+      customers[index] = customer;
+      localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(customers));
+      db.logAudit('ADMIN', 'CUSTOMER_UPDATE', `ویرایش اطلاعات مشتری: ${customer.full_name}`, 'INFO');
+    }
+  },
   getTransactions: (): Transaction[] => {
     const data = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
     return data ? JSON.parse(data) : [];
