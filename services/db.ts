@@ -1,51 +1,103 @@
 
-import { Customer, Transaction, SystemAuditLog, KYCStatus, RiskLevel } from '../types';
+import { Customer, JournalEntry, SystemAuditLog } from '../types';
 
-const STORAGE_KEYS = {
-  CUSTOMERS: 'ems_customers',
-  TRANSACTIONS: 'ems_transactions',
-  AUDIT_LOGS: 'ems_audit_logs',
-  RATES: 'ems_rates'
+const KEYS = {
+  CUSTOMERS: 'zj_customers',
+  JOURNAL: 'zj_journal',
+  LOGS: 'zj_audit_logs',
+  CONFIG: 'zj_system_config'
 };
 
-// Initial Mock Data
-const INITIAL_CUSTOMERS: Customer[] = [
-  { id: 'CUST-1001', national_id: '102938475', full_name: 'محمد ابراهیم هاشمی', father_name: 'عبدالرحیم', phone: '0700123456', kyc_status: KYCStatus.APPROVED, risk_level: RiskLevel.LOW, registration_date: '۱۴۰۳/۰۱/۱۵' },
-  { id: 'CUST-1002', national_id: '556677889', full_name: 'نعمت‌الله وردک', father_name: 'جمعه خان', phone: '0788990011', kyc_status: KYCStatus.PENDING, risk_level: RiskLevel.MEDIUM, registration_date: '۱۴۰۳/۱۲/۰۵' },
-];
+export interface SystemConfig {
+  company: {
+    name: string;
+    license: string;
+    phone: string;
+    address: string;
+  };
+  currencies: { code: string; symbol: string; isBase: boolean; active: boolean }[];
+  expenseCategories: string[];
+  branches: { id: string; name: string; active: boolean }[];
+  language: 'fa' | 'pa' | 'en';
+  calendar: 'solar' | 'gregorian';
+}
+
+const DEFAULT_CONFIG: SystemConfig = {
+  company: {
+    name: "شرکت صرافی و خدمات پولی ذکی جابر",
+    license: "AF-LICENSE-7860",
+    phone: "+93 700 123 456",
+    address: "کابل، سرای شهزاده"
+  },
+  currencies: [
+    { code: 'USD', symbol: '$', isBase: true, active: true },
+    { code: 'AFN', symbol: '؋', isBase: false, active: true },
+    { code: 'PKR', symbol: 'Rs', isBase: false, active: true },
+    { code: 'EUR', symbol: '€', isBase: false, active: true }
+  ],
+  expenseCategories: ['معاشات', 'کرایه', 'برق و انترنت', 'مالیات', 'متفرقه'],
+  branches: [
+    { id: 'MAIN', name: 'شعبه مرکزی کابل', active: true },
+    { id: 'HERAT', name: 'شعبه هرات', active: true }
+  ],
+  language: 'fa',
+  calendar: 'solar'
+};
 
 export const db = {
-  getCustomers: (): Customer[] => {
-    const data = localStorage.getItem(STORAGE_KEYS.CUSTOMERS);
-    return data ? JSON.parse(data) : INITIAL_CUSTOMERS;
-  },
-  saveCustomer: (customer: Customer) => {
-    const customers = db.getCustomers();
-    const updated = [customer, ...customers];
-    localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(updated));
-    db.logAudit('ADMIN', 'CUSTOMER_CREATE', `ثبت مشتری جدید: ${customer.full_name}`, 'INFO');
-  },
-  updateCustomer: (customer: Customer) => {
-    const customers = db.getCustomers();
-    const index = customers.findIndex(c => c.id === customer.id);
-    if (index !== -1) {
-      customers[index] = customer;
-      localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(customers));
-      db.logAudit('ADMIN', 'CUSTOMER_UPDATE', `ویرایش اطلاعات مشتری: ${customer.full_name}`, 'INFO');
+  // --- Config Management ---
+  getConfig: (): SystemConfig => {
+    const data = localStorage.getItem(KEYS.CONFIG);
+    if (!data) {
+      localStorage.setItem(KEYS.CONFIG, JSON.stringify(DEFAULT_CONFIG));
+      return DEFAULT_CONFIG;
     }
+    return JSON.parse(data);
   },
-  getTransactions: (): Transaction[] => {
-    const data = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+  saveConfig: (config: SystemConfig) => {
+    localStorage.setItem(KEYS.CONFIG, JSON.stringify(config));
+    db.saveLog('ADMIN', 'CONFIG_UPDATE', 'تنظیمات سیستم بروزرسانی شد', 'INFO');
+  },
+
+  // --- Data Management ---
+  getCustomers: (): Customer[] => {
+    const data = localStorage.getItem(KEYS.CUSTOMERS);
     return data ? JSON.parse(data) : [];
   },
-  saveTransaction: (txn: Transaction) => {
-    const txns = db.getTransactions();
-    const updated = [txn, ...txns];
-    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(updated));
-    db.logAudit('TELLER', 'TRANSACTION_CREATE', `ثبت معامله: ${txn.id} به مبلغ ${txn.amount} ${txn.currency}`, txn.is_suspicious ? 'CRITICAL' : 'INFO');
+  saveCustomer: (c: Customer) => {
+    const list = db.getCustomers();
+    localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify([c, ...list]));
+    db.saveLog('ADMIN', 'CUSTOMER_REG', `مشتری ثبت شد: ${c.full_name}`, 'INFO');
   },
-  logAudit: (userId: string, action: string, details: string, severity: 'INFO' | 'WARNING' | 'CRITICAL') => {
-    const logs = db.getAuditLogs();
+  updateCustomer: (c: Customer) => {
+    const list = db.getCustomers().map(item => item.id === c.id ? c : item);
+    localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify(list));
+  },
+
+  getJournal: (includeDeleted = false): JournalEntry[] => {
+    const data = localStorage.getItem(KEYS.JOURNAL);
+    const list: JournalEntry[] = data ? JSON.parse(data) : [];
+    return includeDeleted ? list : list.filter(item => !item.isDeleted);
+  },
+  saveEntry: (entry: JournalEntry) => {
+    const list = db.getJournal(true);
+    localStorage.setItem(KEYS.JOURNAL, JSON.stringify([entry, ...list]));
+    db.saveLog('SYSTEM', 'TXN_ENTRY', `ثبت ${entry.category}: ${entry.id}`, (entry.debit + entry.credit) > 100000 ? 'WARNING' : 'INFO');
+  },
+  deleteEntry: (id: string) => {
+    const list = db.getJournal(true).map(item => 
+      item.id === id ? { ...item, isDeleted: true } : item
+    );
+    localStorage.setItem(KEYS.JOURNAL, JSON.stringify(list));
+    db.saveLog('ADMIN', 'TXN_DEL', `حذف رکورد: ${id}`, 'CRITICAL');
+  },
+
+  getLogs: (): SystemAuditLog[] => {
+    const data = localStorage.getItem(KEYS.LOGS);
+    return data ? JSON.parse(data) : [];
+  },
+  saveLog: (userId: string, action: string, details: string, severity: 'INFO' | 'WARNING' | 'CRITICAL') => {
+    const logs = db.getLogs();
     const newLog: SystemAuditLog = {
       id: `LOG-${Date.now()}`,
       userId,
@@ -55,10 +107,20 @@ export const db = {
       timestamp: new Date().toISOString(),
       severity
     };
-    localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify([newLog, ...logs].slice(0, 100)));
+    localStorage.setItem(KEYS.LOGS, JSON.stringify([newLog, ...logs].slice(0, 100)));
   },
-  getAuditLogs: (): SystemAuditLog[] => {
-    const data = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
-    return data ? JSON.parse(data) : [];
+
+  getFinancialSummary: () => {
+    const entries = db.getJournal();
+    const summary: Record<string, { totalIn: number, totalOut: number, balance: number }> = {};
+    entries.forEach(e => {
+      if (!summary[e.currency]) {
+        summary[e.currency] = { totalIn: 0, totalOut: 0, balance: 0 };
+      }
+      summary[e.currency].totalIn += (e.debit || 0);
+      summary[e.currency].totalOut += (e.credit || 0);
+      summary[e.currency].balance = summary[e.currency].totalIn - summary[e.currency].totalOut;
+    });
+    return summary;
   }
 };

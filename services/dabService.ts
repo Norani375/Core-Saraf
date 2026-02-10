@@ -1,15 +1,31 @@
 
-import { TransactionService } from './mockBackend';
+import { db } from './db';
 import { xmlGenerator } from './xmlGenerator';
 import { DABReport, ReportType, SubmissionStatus } from '../types/dab.types';
 
 export const dabService = {
   generateReport: async (type: ReportType, period: string): Promise<DABReport> => {
-    const transactions = TransactionService.list();
-    // فیلتر بر اساس دوره زمانی (در واقعیت)
-    const filtered = transactions; 
+    // دریافت تراکنش‌های واقعی از دیتابیس مرکزی
+    const allTransactions = db.getJournal();
     
-    const xml = xmlGenerator.generateDailyXML(filtered, 'KBL-001');
+    // فیلتر کردن تراکنش‌های مربوط به امروز (period)
+    const filtered = allTransactions.filter(t => t.date.startsWith(period.replace(/\//g, '-')));
+    
+    // تبدیل JournalEntry به فرمت مورد نیاز xmlGenerator (در صورت تفاوت تایپ)
+    const formattedTxns = filtered.map(t => ({
+      id: t.id,
+      customer_id: t.customerId || 'N/A',
+      customer_name: t.customerName || 'ناشناس',
+      type: t.category,
+      amount: t.debit || t.credit,
+      currency: t.currency,
+      rate: t.rate,
+      status: (t.debit || t.credit) > 50000 ? 'SUSPICIOUS' : 'COMPLETED',
+      is_suspicious: (t.debit || t.credit) > 50000,
+      timestamp: t.date
+    }));
+
+    const xml = xmlGenerator.generateDailyXML(formattedTxns as any, 'KBL-786');
     
     const report: DABReport = {
       id: `DAB-REP-${Date.now()}`,
@@ -20,12 +36,11 @@ export const dabService = {
       xmlContent: xml,
       metadata: {
         totalTransactions: filtered.length,
-        totalVolumeUSD: filtered.reduce((acc, curr) => acc + curr.amount, 0),
-        suspiciousCount: filtered.filter(f => f.is_suspicious).length
+        totalVolumeUSD: filtered.reduce((acc, curr) => acc + (curr.currency === 'USD' ? (curr.debit || curr.credit) : 0), 0),
+        suspiciousCount: filtered.filter(f => (f.debit || f.credit) > 50000).length
       }
     };
 
-    // ذخیره در دیتابیس لوکال
     const existing = JSON.parse(localStorage.getItem('dab_reports') || '[]');
     localStorage.setItem('dab_reports', JSON.stringify([report, ...existing]));
     
@@ -37,16 +52,15 @@ export const dabService = {
   },
 
   submitToPortal: async (reportId: string): Promise<string> => {
-    // شبیه‌سازی ارسال به API بانک مرکزی
     return new Promise((resolve) => {
       setTimeout(() => {
         const reports = dabService.getHistory();
         const updated = reports.map(r => 
-          r.id === reportId ? { ...r, status: SubmissionStatus.ACCEPTED, dabReference: `DAB-REF-${Math.floor(Math.random() * 90000)}` } : r
+          r.id === reportId ? { ...r, status: SubmissionStatus.ACCEPTED, dabReference: `DAB-REF-${Math.floor(Math.random() * 900000)}` } : r
         );
         localStorage.setItem('dab_reports', JSON.stringify(updated));
         resolve("SUCCESS");
-      }, 2000);
+      }, 1500);
     });
   }
 };

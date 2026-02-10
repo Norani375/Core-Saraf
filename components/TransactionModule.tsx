@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { analyzeTransactionAML, searchEntity } from '../services/geminiService';
+import { analyzeTransactionAML } from '../services/geminiService';
 import { TransactionService, CustomerService } from '../services/mockBackend';
 import { rateService, ExchangeRate, HistoricalRate } from '../services/rateService';
 import { Transaction, UserRole } from '../types';
@@ -21,10 +21,6 @@ const TransactionModule: React.FC = () => {
   const currentUserRole = (localStorage.getItem('current_role') as UserRole) || UserRole.TELLER;
   const canExport = [UserRole.ADMIN, UserRole.COMPLIANCE, UserRole.TELLER].includes(currentUserRole);
 
-  // Web Check States
-  const [checkingWeb, setCheckingWeb] = useState(false);
-  const [webCheckResult, setWebCheckResult] = useState<{ text: string, sources: any[] } | null>(null);
-  
   const [formData, setFormData] = useState({
     customerId: '',
     type: 'BUY' as any,
@@ -127,21 +123,6 @@ const TransactionModule: React.FC = () => {
   const handleInputChange = (field: string, value: any) => {
      setFormData(prev => ({ ...prev, [field]: value }));
      validateField(field, value);
-     if (field === 'counterparty') {
-        setWebCheckResult(null); // Clear previous check if name changes
-     }
-  };
-
-  const handleWebCheck = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!formData.counterparty || formData.counterparty.length < 3) {
-        alert("لطفاً نام معتبر وارد کنید");
-        return;
-    }
-    setCheckingWeb(true);
-    const result = await searchEntity(formData.counterparty);
-    setWebCheckResult(result);
-    setCheckingWeb(false);
   };
 
   const calculateCommission = (amount: number) => {
@@ -247,8 +228,8 @@ const TransactionModule: React.FC = () => {
         
         <div className="flex justify-between items-center mb-12">
           <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">ثبت معامله جدید</h2>
-            <p className="text-sm text-slate-500 font-medium mt-1">فرم هوشمند با قابلیت پایش زنده ریسک</p>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">ثبت جمع بنام</h2>
+            <p className="text-sm text-slate-500 font-medium mt-1">تکمیل اطلاعات معامله و ثبت در دفتر کل</p>
           </div>
           <div className="flex gap-3 items-center">
              {canExport && (
@@ -294,7 +275,7 @@ const TransactionModule: React.FC = () => {
             </select>
           </div>
 
-          {/* Counterparty with Web Check */}
+          {/* Counterparty */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-4">طرف مقابل (Counterparty)</label>
@@ -307,38 +288,12 @@ const TransactionModule: React.FC = () => {
             <div className="relative">
               <input 
                 type="text" 
-                className={`w-full bg-slate-50 border-2 rounded-3xl px-6 py-4 font-bold outline-none transition-all ${getInputClass('counterparty')} pr-24`}
+                className={`w-full bg-slate-50 border-2 rounded-3xl px-6 py-4 font-bold outline-none transition-all ${getInputClass('counterparty')}`}
                 placeholder="نام طرف دوم یا ذینفع نهایی"
                 value={formData.counterparty}
                 onChange={e => handleInputChange('counterparty', e.target.value)}
               />
-              <button
-                 type="button"
-                 onClick={handleWebCheck}
-                 disabled={checkingWeb || !formData.counterparty}
-                 className="absolute left-2 top-2 bottom-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 rounded-2xl text-[10px] font-black transition-colors flex items-center gap-2"
-              >
-                 {checkingWeb ? <i className="fa fa-spinner fa-spin"></i> : <i className="fa fa-globe"></i>}
-                 Web Check
-              </button>
             </div>
-            {webCheckResult && (
-                <div className="mt-2 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 text-xs animate-in slide-in-from-top-2">
-                    <div className="font-bold text-indigo-900 mb-1 flex items-center gap-2">
-                        <i className="fa fa-search"></i> نتایج جستجوی وب (Gemini Flash)
-                    </div>
-                    <p className="text-slate-600 leading-relaxed mb-2">{webCheckResult.text}</p>
-                    {webCheckResult.sources.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                            {webCheckResult.sources.slice(0,3).map((s: any, idx) => (
-                                <a key={idx} href={s.uri} target="_blank" rel="noreferrer" className="text-[9px] text-indigo-500 bg-white px-2 py-0.5 rounded border border-indigo-100 truncate max-w-[150px]">
-                                    <i className="fa fa-external-link-alt mr-1"></i> {s.title || 'Source'}
-                                </a>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
           </div>
 
           {/* Amount and Currency */}
@@ -457,7 +412,7 @@ const TransactionModule: React.FC = () => {
               ) : (
                 <div className="flex items-center justify-center gap-4">
                    <i className="fa fa-magnifying-glass-chart"></i>
-                   <span>ثبت و تحلیل تراکنش</span>
+                   <span>تایید و ثبت جمع بنام</span>
                 </div>
               )}
             </button>
