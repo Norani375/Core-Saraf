@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
 import KYCManagement from './components/KYCManagement';
@@ -11,9 +11,9 @@ import AMLMonitoring from './components/AMLMonitoring';
 import TreasuryManagement from './components/TreasuryManagement';
 import SecuritySettings from './components/SecuritySettings';
 import LoginVerification from './components/LoginVerification';
-import { MenuItem } from './types';
+import { MenuItem, UserRole } from './types';
 
-// Centralized Menu Configuration based on User Specification
+// Centralized Menu Configuration with strict roles
 const MAIN_MENU: MenuItem[] = [
   {
     id: 'dashboard',
@@ -28,7 +28,7 @@ const MAIN_MENU: MenuItem[] = [
     id: 'customer-management',
     title: { fa: 'مدیریت مشتریان', ps: 'پیرودونکو مدیریت', en: 'Customer Management' },
     icon: 'fa-users',
-    permission: ['MANAGER'],
+    permission: [UserRole.ADMIN, UserRole.COMPLIANCE],
     isActive: true,
     module: 'CUSTOMER',
     children: [
@@ -37,7 +37,7 @@ const MAIN_MENU: MenuItem[] = [
         title: { fa: 'لیست مشتریان', ps: 'پیرودونکو لیسټ', en: 'Customer List' },
         icon: 'fa-list-ul',
         path: '/customers/list',
-        permission: ['MANAGER'],
+        permission: [UserRole.ADMIN, UserRole.COMPLIANCE],
         isActive: true,
         module: 'CUSTOMER',
         badge: { count: 23, color: 'warning' }
@@ -47,7 +47,7 @@ const MAIN_MENU: MenuItem[] = [
         title: { fa: 'در انتظار تأیید KYC', ps: 'د KYC تایید په تمه', en: 'Pending KYC' },
         icon: 'fa-user-check',
         path: '/customers/kyc-pending',
-        permission: ['MANAGER'],
+        permission: [UserRole.ADMIN, UserRole.COMPLIANCE],
         isActive: true,
         module: 'CUSTOMER',
         badge: { count: 15, color: 'danger' }
@@ -58,7 +58,7 @@ const MAIN_MENU: MenuItem[] = [
     id: 'transactions',
     title: { fa: 'مدیریت معاملات', ps: 'معاملې مدیریت', en: 'Transactions' },
     icon: 'fa-exchange-alt',
-    permission: ['TELLER'],
+    permission: [UserRole.TELLER, UserRole.ADMIN],
     isActive: true,
     module: 'TRANSACTION',
     children: [
@@ -67,7 +67,7 @@ const MAIN_MENU: MenuItem[] = [
         title: { fa: 'ثبت معامله جدید', ps: 'نوی معامله', en: 'New Transaction' },
         icon: 'fa-plus-circle',
         path: '/transactions/new',
-        permission: ['TELLER'],
+        permission: [UserRole.TELLER, UserRole.ADMIN],
         isActive: true,
         module: 'TRANSACTION'
       },
@@ -76,7 +76,7 @@ const MAIN_MENU: MenuItem[] = [
         title: { fa: 'معاملات در انتظار', ps: 'معاملې په تمه', en: 'Pending Txns' },
         icon: 'fa-clock',
         path: '/transactions/pending',
-        permission: ['MANAGER'],
+        permission: [UserRole.ADMIN, UserRole.COMPLIANCE],
         isActive: true,
         module: 'TRANSACTION',
         badge: { count: 8, color: 'warning' }
@@ -87,7 +87,7 @@ const MAIN_MENU: MenuItem[] = [
     id: 'compliance',
     title: { fa: 'انطباق و نظارت', ps: 'مطابقت او څارنه', en: 'Compliance' },
     icon: 'fa-shield-halved',
-    permission: ['COMPLIANCE'],
+    permission: [UserRole.COMPLIANCE, UserRole.ADMIN],
     isActive: true,
     module: 'COMPLIANCE',
     children: [
@@ -96,7 +96,7 @@ const MAIN_MENU: MenuItem[] = [
         title: { fa: 'نظارت AML/CFT', ps: 'AML/CFT څارنه', en: 'AML/CFT Monitoring' },
         icon: 'fa-radar',
         path: '/compliance/aml',
-        permission: ['COMPLIANCE'],
+        permission: [UserRole.COMPLIANCE, UserRole.ADMIN],
         isActive: true,
         module: 'COMPLIANCE'
       },
@@ -105,7 +105,7 @@ const MAIN_MENU: MenuItem[] = [
         title: { fa: 'پورتال گزارش‌دهی DAB', ps: 'مرکزي بانک ته راپور', en: 'DAB Reporting' },
         icon: 'fa-file-invoice',
         path: '/reporting',
-        permission: ['COMPLIANCE'],
+        permission: [UserRole.COMPLIANCE, UserRole.ADMIN],
         isActive: true,
         module: 'COMPLIANCE'
       }
@@ -115,7 +115,7 @@ const MAIN_MENU: MenuItem[] = [
     id: 'treasury',
     title: { fa: 'خزانه‌داری', ps: 'خزانه‌داري', en: 'Treasury' },
     icon: 'fa-vault',
-    permission: ['TREASURY'],
+    permission: [UserRole.TREASURY, UserRole.ADMIN],
     isActive: true,
     module: 'TREASURY',
     children: [
@@ -124,7 +124,7 @@ const MAIN_MENU: MenuItem[] = [
         title: { fa: 'مدیریت نقدینگی', ps: 'نغدي مدیریت', en: 'Cash Management' },
         icon: 'fa-wallet',
         path: '/treasury/cash',
-        permission: ['TREASURY'],
+        permission: [UserRole.TREASURY, UserRole.ADMIN],
         isActive: true,
         module: 'TREASURY'
       }
@@ -134,7 +134,7 @@ const MAIN_MENU: MenuItem[] = [
     id: 'system',
     title: { fa: 'مدیریت سیستم', ps: 'سیستم مدیریت', en: 'System Admin' },
     icon: 'fa-cog',
-    permission: ['ADMIN'],
+    permission: [UserRole.ADMIN],
     isActive: true,
     module: 'ADMIN',
     children: [
@@ -143,7 +143,7 @@ const MAIN_MENU: MenuItem[] = [
         title: { fa: 'تنظیمات امنیتی (2FA)', ps: 'امنیتي ترتیبات', en: 'Security & 2FA' },
         icon: 'fa-user-shield',
         path: '/admin/settings/security',
-        permission: ['ADMIN'],
+        permission: [UserRole.ADMIN],
         isActive: true,
         module: 'ADMIN'
       },
@@ -152,7 +152,7 @@ const MAIN_MENU: MenuItem[] = [
         title: { fa: 'معماری و امنیت', ps: 'معمارۍ', en: 'Architecture' },
         icon: 'fa-sitemap',
         path: '/admin/architecture',
-        permission: ['ADMIN'],
+        permission: [UserRole.ADMIN],
         isActive: true,
         module: 'ADMIN'
       }
@@ -160,9 +160,15 @@ const MAIN_MENU: MenuItem[] = [
   }
 ];
 
-const SidebarItem: React.FC<{ item: MenuItem, lang: 'fa' | 'ps' | 'en' }> = ({ item, lang }) => {
+const SidebarItem: React.FC<{ item: MenuItem, lang: 'fa' | 'ps' | 'en', userRole: UserRole }> = ({ item, lang, userRole }) => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  
+  // Filtering logic: show item if 'ALL' is in permissions or current role matches
+  const canAccess = item.permission.includes('ALL') || item.permission.includes(userRole);
+  
+  if (!canAccess) return null;
+
   const hasChildren = item.children && item.children.length > 0;
   
   const isChildActive = (menuItem: MenuItem): boolean => {
@@ -222,12 +228,20 @@ const SidebarItem: React.FC<{ item: MenuItem, lang: 'fa' | 'ps' | 'en' }> = ({ i
       {isOpen && (
         <div className="mr-6 pr-2 space-y-1 border-r border-slate-800 animate-in slide-in-from-top-2 duration-300">
           {item.children?.map(child => (
-            <SidebarItem key={child.id} item={child} lang={lang} />
+            <SidebarItem key={child.id} item={child} lang={lang} userRole={userRole} />
           ))}
         </div>
       )}
     </div>
   );
+};
+
+const ProtectedRoute: React.FC<{ children: React.ReactElement, allowedRoles: (UserRole | 'ALL')[], userRole: UserRole }> = ({ children, allowedRoles, userRole }) => {
+    const isAllowed = allowedRoles.includes('ALL') || allowedRoles.includes(userRole);
+    if (!isAllowed) {
+        return <Navigate to="/" replace />;
+    }
+    return children;
 };
 
 const App: React.FC = () => {
@@ -241,6 +255,11 @@ const App: React.FC = () => {
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [show2FAVerify, setShow2FAVerify] = useState(false);
+  
+  // Mock User Role State
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole>(() => {
+    return (localStorage.getItem('current_role') as UserRole) || UserRole.ADMIN;
+  });
 
   useEffect(() => {
     localStorage.setItem('lang', lang);
@@ -249,6 +268,10 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('2fa_enabled', String(is2FAEnabled));
   }, [is2FAEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('current_role', currentUserRole);
+  }, [currentUserRole]);
 
   // Initial login simulation
   useEffect(() => {
@@ -264,11 +287,20 @@ const App: React.FC = () => {
   const handleSignOut = () => {
     setIsLoggedIn(false);
     setShow2FAVerify(false);
-    // In a real app, this would redirect to login
     setTimeout(() => {
       if (is2FAEnabled) setShow2FAVerify(true);
       else setIsLoggedIn(true);
     }, 500);
+  };
+
+  const getRoleLabel = (role: UserRole) => {
+    switch (role) {
+      case UserRole.ADMIN: return 'مدیر سیستم';
+      case UserRole.COMPLIANCE: return 'مسئول انطباق';
+      case UserRole.TELLER: return 'صراف شعبه';
+      case UserRole.TREASURY: return 'خزانه‌دار';
+      default: return 'کاربر';
+    }
   };
 
   if (show2FAVerify) {
@@ -279,7 +311,6 @@ const App: React.FC = () => {
           setIsLoggedIn(true);
         }}
         onCancel={() => {
-          // Simulation: just stay on the lock screen or refresh
           window.location.reload();
         }}
       />
@@ -314,7 +345,7 @@ const App: React.FC = () => {
           <div className="flex-1 px-4 space-y-2 overflow-y-auto py-4 custom-scrollbar">
             <p className="text-[10px] text-slate-600 font-black uppercase tracking-[0.2em] px-4 mb-4">Management Modules</p>
             {MAIN_MENU.map(item => (
-              <SidebarItem key={item.id} item={item} lang={lang} />
+              <SidebarItem key={item.id} item={item} lang={lang} userRole={currentUserRole} />
             ))}
           </div>
 
@@ -324,7 +355,7 @@ const App: React.FC = () => {
                 <i className="fa fa-user-shield text-white text-sm"></i>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-black truncate">مدیر انطباق (Admin)</p>
+                <p className="text-sm font-black truncate">{getRoleLabel(currentUserRole)}</p>
                 <p className="text-[10px] text-emerald-400 flex items-center gap-1.5 font-bold">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> سیستمی آنلاین
                 </p>
@@ -344,13 +375,19 @@ const App: React.FC = () => {
                 </span>
               </div>
               <div className="h-8 w-px bg-slate-200"></div>
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Security Shield</span>
-                  <span className={`text-[10px] font-black flex items-center gap-2 ${is2FAEnabled ? 'text-emerald-600' : 'text-slate-400'}`}>
-                    <i className={`fa ${is2FAEnabled ? 'fa-shield-check' : 'fa-shield'}`}></i> 2FA {is2FAEnabled ? 'ACTIVE' : 'OFF'}
-                  </span>
-                </div>
+              
+              {/* Role Switcher (Mock Feature) */}
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Mock Role Switch</span>
+                <select 
+                    value={currentUserRole} 
+                    onChange={(e) => setCurrentUserRole(e.target.value as UserRole)}
+                    className="text-[10px] font-black bg-slate-50 border-none rounded-lg px-2 py-1 outline-none text-indigo-600"
+                >
+                    {Object.values(UserRole).map(role => (
+                        <option key={role} value={role}>{role}</option>
+                    ))}
+                </select>
               </div>
             </div>
 
@@ -391,17 +428,16 @@ const App: React.FC = () => {
           <div className="p-8 lg:p-12 max-w-[1600px] mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
             <Routes>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/customers/list" element={<KYCManagement />} />
-              <Route path="/customers/kyc-pending" element={<KYCManagement />} />
-              <Route path="/transactions/new" element={<TransactionModule />} />
-              <Route path="/transactions/pending" element={<PendingTransactions />} />
-              <Route path="/compliance/aml" element={<AMLMonitoring />} />
-              <Route path="/reporting" element={<Reporting />} />
-              <Route path="/treasury/cash" element={<TreasuryManagement />} />
-              <Route path="/admin/architecture" element={<ArchitectureInfo />} />
-              <Route path="/admin/settings/security" element={<SecuritySettings is2FAEnabled={is2FAEnabled} onToggle2FA={setIs2FAEnabled} />} />
+              <Route path="/customers/list" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.COMPLIANCE]} userRole={currentUserRole}><KYCManagement /></ProtectedRoute>} />
+              <Route path="/customers/kyc-pending" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.COMPLIANCE]} userRole={currentUserRole}><KYCManagement /></ProtectedRoute>} />
+              <Route path="/transactions/new" element={<ProtectedRoute allowedRoles={[UserRole.TELLER, UserRole.ADMIN]} userRole={currentUserRole}><TransactionModule /></ProtectedRoute>} />
+              <Route path="/transactions/pending" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.COMPLIANCE]} userRole={currentUserRole}><PendingTransactions /></ProtectedRoute>} />
+              <Route path="/compliance/aml" element={<ProtectedRoute allowedRoles={[UserRole.COMPLIANCE, UserRole.ADMIN]} userRole={currentUserRole}><AMLMonitoring /></ProtectedRoute>} />
+              <Route path="/reporting" element={<ProtectedRoute allowedRoles={[UserRole.COMPLIANCE, UserRole.ADMIN]} userRole={currentUserRole}><Reporting /></ProtectedRoute>} />
+              <Route path="/treasury/cash" element={<ProtectedRoute allowedRoles={[UserRole.TREASURY, UserRole.ADMIN]} userRole={currentUserRole}><TreasuryManagement /></ProtectedRoute>} />
+              <Route path="/admin/architecture" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]} userRole={currentUserRole}><ArchitectureInfo /></ProtectedRoute>} />
+              <Route path="/admin/settings/security" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]} userRole={currentUserRole}><SecuritySettings is2FAEnabled={is2FAEnabled} onToggle2FA={setIs2FAEnabled} /></ProtectedRoute>} />
               
-              {/* Catch-all to Dashboard */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

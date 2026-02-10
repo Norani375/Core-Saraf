@@ -6,6 +6,11 @@ export interface ExchangeRate {
   lastUpdate: string;
 }
 
+export interface HistoricalRate {
+  date: string;
+  rate: number;
+}
+
 export const rateService = {
   fetchLiveRates: async (): Promise<ExchangeRate[]> => {
     // شبیه‌سازی فراخوانی API خارجی برای نرخ‌های ارز
@@ -19,6 +24,40 @@ export const rateService = {
           { pair: 'IRR/AFN', rate: 0.0017 + (Math.random() * 0.0002 - 0.0001), change: 0.08, lastUpdate: new Date().toLocaleTimeString('fa-AF') },
         ]);
       }, 800);
+    });
+  },
+
+  fetchHistoricalRates: async (currency: string, days: number = 7): Promise<HistoricalRate[]> => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const data: HistoricalRate[] = [];
+        const today = new Date();
+        // Base rates mapping
+        const baseRates: {[key: string]: number} = {
+            'USD': 74.20,
+            'EUR': 80.45,
+            'GBP': 94.10,
+            'PKR': 0.26,
+            'IRR': 0.0017,
+            'AFN': 1
+        };
+        
+        const baseRate = baseRates[currency] || 74.20;
+
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          // Random fluctuation +/- 1%
+          const variance = baseRate * 0.01; 
+          const randomChange = (Math.random() * variance * 2) - variance;
+          
+          data.push({
+            date: d.toLocaleDateString('fa-AF', { month: 'short', day: 'numeric' }),
+            rate: parseFloat((baseRate + randomChange).toFixed(4))
+          });
+        }
+        resolve(data);
+      }, 300);
     });
   }
 };

@@ -11,6 +11,13 @@ export enum RiskLevel {
   HIGH = 'HIGH'
 }
 
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  COMPLIANCE = 'COMPLIANCE',
+  TELLER = 'TELLER',
+  TREASURY = 'TREASURY'
+}
+
 export interface Customer {
   id: string;
   national_id: string;
@@ -47,7 +54,7 @@ export interface MenuItem {
   icon: string;
   path?: string;
   children?: MenuItem[];
-  permission: string[];
+  permission: (UserRole | 'ALL')[];
   badge?: {
     count: number;
     color: 'primary' | 'success' | 'warning' | 'danger';
