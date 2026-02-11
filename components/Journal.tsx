@@ -45,9 +45,17 @@ const Journal: React.FC = () => {
     db.saveEntry(newEntry);
     setEntries(db.getJournal());
     setShowAddModal(false);
+    
+    // نمایش رسید بلافاصله بعد از ثبت برای تایید نهایی
     setSelectedReceipt(newEntry);
     setShowReceiptModal(true);
+    
     setFormData({ description: '', customerName: '', category: 'CASH_IN', amount: '', currency: 'USD', type: 'DEBIT' });
+  };
+
+  const handlePrintReceipt = (entry: JournalEntry) => {
+    setSelectedReceipt(entry);
+    setShowReceiptModal(true);
   };
 
   const handleReverse = (entry: JournalEntry) => {
@@ -71,11 +79,6 @@ const Journal: React.FC = () => {
     }
   };
 
-  const handlePrintReceipt = (entry: JournalEntry) => {
-    setSelectedReceipt(entry);
-    setShowReceiptModal(true);
-  };
-
   const handleDelete = (id: string) => {
     if (window.confirm("آیا از حذف دایمی این رکورد اطمینان دارید؟ (پیشنهاد می‌شود از دکمه برگشت استفاده کنید)")) {
       db.deleteEntry(id);
@@ -83,7 +86,7 @@ const Journal: React.FC = () => {
     }
   };
 
-  const handleFinalPrint = () => {
+  const triggerBrowserPrint = () => {
     window.print();
   };
 
@@ -159,7 +162,7 @@ const Journal: React.FC = () => {
                 </td>
                 <td className="px-8 py-5 text-left border">
                    <div className="flex gap-2 justify-end">
-                      <button onClick={() => handlePrintReceipt(e)} className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-600 transition-all flex items-center justify-center" title="چاپ رسید">
+                      <button onClick={() => handlePrintReceipt(e)} className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-600 transition-all flex items-center justify-center" title="چاپ رسید رسمی">
                          <i className="fa fa-print text-[10px]"></i>
                       </button>
                       {!e.isReversed && (
@@ -178,79 +181,119 @@ const Journal: React.FC = () => {
         </table>
       </div>
 
-      {/* Receipt Modal (بازچاپ رسید) */}
+      {/* Receipt Modal (رسید چاپی تراکنش) */}
       {showReceiptModal && selectedReceipt && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-md no-print" onClick={(e) => e.target === e.currentTarget && setShowReceiptModal(false)}>
           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95">
             <div className="p-6 bg-slate-900 text-white flex justify-between items-center no-print">
                <h3 className="text-lg font-black flex items-center gap-3">
-                 <i className="fa fa-print"></i> رسید اسناد حسابداری
+                 <i className="fa fa-file-invoice-dollar"></i> رسید اسناد حسابداری
                </h3>
                <button onClick={() => setShowReceiptModal(false)} className="hover:text-rose-500 transition-colors"><i className="fa fa-times text-xl"></i></button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-12 bg-white printable-area">
-               <div className="text-center space-y-3 border-b-2 border-slate-100 pb-8 mb-8">
-                  <h2 className="text-2xl font-black text-slate-900">{config.company.name}</h2>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em]">Official Transaction Voucher</p>
-                  <p className="text-[11px] font-bold text-slate-500">{config.company.address} • {config.company.phone}</p>
-                  <div className="flex justify-center gap-10 mt-4">
-                     <div className="text-right">
-                        <p className="text-[8px] font-black text-slate-400 uppercase">تاریخ صدور</p>
-                        <p className="text-xs font-black">{new Date(selectedReceipt.date).toLocaleDateString('fa-AF')}</p>
+               {/* هدر رسید مخصوص چاپ */}
+               <div className="text-center space-y-4 border-b-2 border-slate-200 pb-8 mb-8">
+                  <div className="flex justify-between items-start mb-6">
+                     <div className="text-right space-y-1">
+                        <h2 className="text-2xl font-black text-slate-900 leading-tight">{config.company.name}</h2>
+                        <div className="flex flex-col gap-0.5 text-[10px] font-bold text-slate-500">
+                           <span>جواز فعالیت: {config.company.license}</span>
+                           <span>شماره تماس: {config.company.phone}</span>
+                           <span>آدرس: {config.company.address}</span>
+                        </div>
                      </div>
-                     <div className="text-right">
-                        <p className="text-[8px] font-black text-slate-400 uppercase">شماره سند</p>
-                        <p className="text-xs font-black font-mono">{selectedReceipt.id}</p>
+                     <div className="flex flex-col items-center">
+                        <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-xl mb-2">
+                           <i className="fa fa-vault text-white text-4xl"></i>
+                        </div>
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">SarafCore Secure</span>
+                     </div>
+                  </div>
+                  
+                  <div className="bg-indigo-50/50 py-3 rounded-2xl border border-indigo-100">
+                     <h3 className="text-xl font-black text-indigo-700 uppercase tracking-[0.2em]">رسید نهایی تراکنش (Voucher)</h3>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4 mt-6 text-[10px] font-black text-slate-500 uppercase">
+                     <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <p className="text-slate-400 mb-1">شماره سند (Ref)</p>
+                        <p className="text-slate-900 font-mono">{selectedReceipt.id}</p>
+                     </div>
+                     <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <p className="text-slate-400 mb-1">تاریخ و ساعت</p>
+                        <p className="text-slate-900">{new Date(selectedReceipt.date).toLocaleString('fa-AF')}</p>
+                     </div>
+                     <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <p className="text-slate-400 mb-1">واحد مالی</p>
+                        <p className="text-slate-900">{selectedReceipt.currency}</p>
                      </div>
                   </div>
                </div>
 
-               <div className="space-y-10">
-                  <div className="grid grid-cols-2 gap-8 text-sm">
-                     <div className="space-y-4 text-right">
-                        <div className="flex justify-between border-b border-slate-50 pb-2">
-                           <span className="text-slate-400 font-bold">بنام مشتری:</span>
-                           <span className="font-black">{selectedReceipt.customerName || 'متفرقه'}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-50 pb-2">
-                           <span className="text-slate-400 font-bold">بابت (شرح):</span>
-                           <span className="font-black">{selectedReceipt.description}</span>
-                        </div>
+               {/* بدنه رسید */}
+               <div className="space-y-8">
+                  <div className="grid grid-cols-1 gap-4">
+                     <div className="flex justify-between items-center p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100">
+                        <span className="text-slate-400 font-black uppercase text-[10px]">بنام مشتری / شخص:</span>
+                        <span className="font-black text-slate-800 text-lg">{selectedReceipt.customerName || 'مشتری متفرقه'}</span>
                      </div>
-                     <div className="space-y-4 text-right">
-                        <div className="flex justify-between border-b border-slate-50 pb-2">
-                           <span className="text-slate-400 font-bold">نوع سند:</span>
-                           <span className="font-black text-indigo-600">{selectedReceipt.category}</span>
+                     
+                     <div className="flex justify-between items-center p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100">
+                        <span className="text-slate-400 font-black uppercase text-[10px]">بابت (تفاصیل معامله):</span>
+                        <span className="font-bold text-slate-700 text-sm">{selectedReceipt.description}</span>
+                     </div>
+
+                     <div className="flex justify-between items-center p-8 bg-indigo-600 rounded-[2.5rem] shadow-xl shadow-indigo-600/10 text-white">
+                        <div className="space-y-1">
+                           <span className="text-indigo-200 font-black uppercase text-[10px]">مبلغ نهایی رسید/برد:</span>
+                           <p className="text-xs opacity-70">{(selectedReceipt.debit > 0) ? 'رسید وجه به صرافی' : 'برد وجه از صرافی'}</p>
                         </div>
-                        <div className="flex justify-between border-b border-slate-50 pb-2">
-                           <span className="text-slate-400 font-bold">مبلغ نهایی:</span>
-                           <span className="font-black text-lg">{(selectedReceipt.debit || selectedReceipt.credit).toLocaleString()} {selectedReceipt.currency}</span>
+                        <div className="text-right">
+                           <span className="font-black text-4xl leading-none">{(selectedReceipt.debit || selectedReceipt.credit).toLocaleString()}</span>
+                           <span className="font-black text-indigo-300 mr-3 text-xl">{selectedReceipt.currency}</span>
                         </div>
                      </div>
                   </div>
 
-                  <div className="pt-24 grid grid-cols-2 gap-20 text-center">
-                    <div className="space-y-12">
-                       <p className="text-[10px] font-black text-slate-400 uppercase">امضاء و مهر مشتری</p>
-                       <div className="h-px bg-slate-200 w-32 mx-auto"></div>
+                  {/* بخش امضاها */}
+                  <div className="pt-20 grid grid-cols-2 gap-20 text-center">
+                    <div className="space-y-16">
+                       <p className="text-[10px] font-black text-slate-500 uppercase border-b border-slate-200 pb-3">محل امضاء و اثر انگشت مشتری</p>
+                       <div className="h-12 border border-dashed border-slate-100 rounded-xl"></div>
                     </div>
-                    <div className="space-y-12">
-                       <p className="text-[10px] font-black text-slate-400 uppercase">تایید صندوق‌دار</p>
-                       <div className="h-px bg-slate-200 w-32 mx-auto"></div>
+                    <div className="space-y-16">
+                       <p className="text-[10px] font-black text-slate-500 uppercase border-b border-slate-200 pb-3">مهر و تایید صندوق‌دار</p>
+                       <div className="h-12 border border-dashed border-slate-100 rounded-xl"></div>
                     </div>
                   </div>
                   
-                  <div className="pt-10 text-center border-t border-slate-50">
-                     <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">SarafCore Enterprise - Secure Financial Voucher</p>
+                  {/* فوتر امنیتی */}
+                  <div className="pt-12 text-center border-t border-slate-100">
+                     <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.5em]">
+                        SarafCore Enterprise v2.5 - Official Accounting Document - Valid with Stamp Only
+                     </p>
+                     <p className="text-[7px] text-slate-400 mt-2 font-mono italic">
+                        Verification Code: {selectedReceipt.id.split('-')[1]} | Auth ID: {Math.random().toString(36).substring(7).toUpperCase()}
+                     </p>
                   </div>
                </div>
             </div>
 
+            {/* دکمه‌های کنترل مودال */}
             <div className="p-8 bg-slate-50 border-t flex gap-4 no-print">
-               <button onClick={() => setShowReceiptModal(false)} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-sm hover:bg-slate-100 transition-colors">انصراف</button>
-               <button onClick={handleFinalPrint} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors">
-                  <i className="fa fa-print"></i> چاپ نهایی رسید
+               <button 
+                  onClick={() => setShowReceiptModal(false)} 
+                  className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-sm hover:bg-slate-100 transition-colors"
+               >
+                  بستن و بازگشت
+               </button>
+               <button 
+                  onClick={triggerBrowserPrint} 
+                  className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors"
+               >
+                  <i className="fa fa-print"></i> چاپ نهایی رسید (Print)
                </button>
             </div>
           </div>

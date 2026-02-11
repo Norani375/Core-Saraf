@@ -1,11 +1,11 @@
 
-import { Customer, JournalEntry, SystemAuditLog } from '../types';
+import { Customer, JournalEntry, SystemAuditLog, TransactionType } from '../types';
 
 const KEYS = {
-  CUSTOMERS: 'zj_customers',
-  JOURNAL: 'zj_journal',
-  LOGS: 'zj_audit_logs',
-  CONFIG: 'zj_system_config'
+  CUSTOMERS: 'zj_customers_v3', // نسخه جدید برای اطمینان از پاکسازی تداخلات قبلی
+  JOURNAL: 'zj_journal_v3',
+  LOGS: 'zj_audit_logs_v3',
+  CONFIG: 'zj_system_config_v3'
 };
 
 export interface SystemConfig {
@@ -45,7 +45,7 @@ const DEFAULT_CONFIG: SystemConfig = {
 };
 
 export const db = {
-  // --- Config Management ---
+  // --- Config ---
   getConfig: (): SystemConfig => {
     const data = localStorage.getItem(KEYS.CONFIG);
     if (!data) {
@@ -59,21 +59,22 @@ export const db = {
     db.saveLog('ADMIN', 'CONFIG_UPDATE', 'تنظیمات سیستم بروزرسانی شد', 'INFO');
   },
 
-  // --- Data Management ---
+  // --- Customers (KYC) ---
   getCustomers: (): Customer[] => {
     const data = localStorage.getItem(KEYS.CUSTOMERS);
     return data ? JSON.parse(data) : [];
   },
   saveCustomer: (c: Customer) => {
     const list = db.getCustomers();
-    localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify([c, ...list]));
-    db.saveLog('ADMIN', 'CUSTOMER_REG', `مشتری ثبت شد: ${c.full_name}`, 'INFO');
+    const newList = [c, ...list];
+    localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify(newList));
   },
   updateCustomer: (c: Customer) => {
     const list = db.getCustomers().map(item => item.id === c.id ? c : item);
     localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify(list));
   },
 
+  // --- Journal & Transactions ---
   getJournal: (includeDeleted = false): JournalEntry[] => {
     const data = localStorage.getItem(KEYS.JOURNAL);
     const list: JournalEntry[] = data ? JSON.parse(data) : [];
@@ -81,7 +82,8 @@ export const db = {
   },
   saveEntry: (entry: JournalEntry) => {
     const list = db.getJournal(true);
-    localStorage.setItem(KEYS.JOURNAL, JSON.stringify([entry, ...list]));
+    const newList = [entry, ...list];
+    localStorage.setItem(KEYS.JOURNAL, JSON.stringify(newList));
     db.saveLog('SYSTEM', 'TXN_ENTRY', `ثبت ${entry.category}: ${entry.id}`, (entry.debit + entry.credit) > 100000 ? 'WARNING' : 'INFO');
   },
   deleteEntry: (id: string) => {
@@ -92,6 +94,7 @@ export const db = {
     db.saveLog('ADMIN', 'TXN_DEL', `حذف رکورد: ${id}`, 'CRITICAL');
   },
 
+  // --- Logs ---
   getLogs: (): SystemAuditLog[] => {
     const data = localStorage.getItem(KEYS.LOGS);
     return data ? JSON.parse(data) : [];
