@@ -64,8 +64,18 @@ const KYCManagement: React.FC = () => {
     if (editingId) {
       const existing = customers.find(c => c.id === editingId);
       if (existing) {
+        // شناسایی فیلدهای تغییر یافته برای لاگ سیستم
+        const changes: string[] = [];
+        if (existing.full_name !== formData.full_name) changes.push(`نام: [${existing.full_name} -> ${formData.full_name}]`);
+        if (existing.father_name !== formData.father_name) changes.push(`نام پدر: [${existing.father_name} -> ${formData.father_name}]`);
+        if (existing.national_id !== formData.national_id) changes.push(`تذکره: [${existing.national_id} -> ${formData.national_id}]`);
+        if (existing.phone !== formData.phone) changes.push(`تلفن: [${existing.phone} -> ${formData.phone}]`);
+        if (existing.risk_level !== formData.risk_level) changes.push(`ریسک: [${existing.risk_level} -> ${formData.risk_level}]`);
+
         db.updateCustomer({ ...existing, ...formData });
-        db.saveLog(currentUser, 'KYC_UPDATE', `ویرایش مشتری: ${formData.full_name}`, 'INFO');
+        
+        const changeDetails = changes.length > 0 ? `تغییرات: ${changes.join(' | ')}` : 'بدون تغییر در مقادیر';
+        db.saveLog(currentUser, 'KYC_UPDATE', `ویرایش پروفایل ${formData.full_name} (${editingId}). ${changeDetails}`, 'INFO');
       }
     } else {
       const newCustomer: Customer = {
@@ -74,7 +84,9 @@ const KYCManagement: React.FC = () => {
         kyc_status: KYCStatus.PENDING
       };
       db.saveCustomer(newCustomer);
-      db.saveLog(currentUser, 'KYC_CREATE', `ثبت مشتری: ${newCustomer.full_name}`, 'INFO');
+      
+      const creationDetails = `اطلاعات اولیه: نام: ${formData.full_name} | پدر: ${formData.father_name} | تذکره: ${formData.national_id} | ریسک: ${formData.risk_level}`;
+      db.saveLog(currentUser, 'KYC_CREATE', `ثبت مشتری جدید در سیستم. ${creationDetails}`, 'INFO');
     }
     
     // بلافاصله لیست را از دیتابیس مجدداً بارگذاری کن تا تغییرات اعمال شود
